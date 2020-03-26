@@ -1,93 +1,59 @@
-import React from 'react';
-import { Image } from 'react-native';
-import { AppLoading } from 'expo';
-import * as Font from 'expo-font';
-import { Asset } from 'expo-asset';
-import { Block, GalioProvider } from 'galio-framework';
-import { NavigationContainer } from '@react-navigation/native';
-import ModalDropdown from 'react-native-modal-dropdown';
+import React from "react";
+import * as Expo from "expo";
+import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/es/integration/react";
+import { StyleProvider } from "native-base";
+import { StatusBar, Platform } from "react-native";
 
-import Screens from './navigation/Screens';
-import { Images, articles, nowTheme } from './constants';
+import getTheme from "@assets/native-base-theme/components";
+import theme from "@assets/native-base-theme/variables/commonColor";
 
-// cache app images
-const assetImages = [
-  Images.Onboarding,
-  Images.Logo,
-  Images.Pro,
-  Images.NowLogo,
-  Images.iOSLogo,
-  Images.androidLogo,
-  Images.ProfilePicture,
-  Images.CreativeTimLogo,
-  Images.InvisionLogo,
-  Images.RegisterBackground,
-  Images.ProfileBackground
-];
+import configureStore from "@app/store";
+import Loading from "@components/loading/Loading";
+import Dashboard from "@components/dashboard/Dashboard";
 
-// cache product images
-articles.map(article => assetImages.push(article.image));
+const { persistor, store } = configureStore();
 
-function cacheImages(images) {
-  return images.map(image => {
-    if (typeof image === 'string') {
-      return Image.prefetch(image);
-    } else {
-      return Asset.fromModule(image).downloadAsync();
-    }
-  });
-}
+if (Platform.OS === "android") StatusBar.setHidden(true);
 
 export default class App extends React.Component {
-  state = {
-    isLoadingComplete: false,
-    fontLoaded: false
-  };
+  constructor(props) {
+    super(props);
 
-  async componentDidMount() {
-    Font.loadAsync({
-      'montserrat-regular': require('./assets/font/Montserrat-Regular.ttf'),
-      'montserrat-bold': require('./assets/font/Montserrat-Bold.ttf')
+    this.state = {
+      isReady: false
+    };
+  }
+
+  componentWillMount() {
+    this.loadFonts();
+  }
+
+  async loadFonts() {
+    await Expo.Font.loadAsync({
+      Roboto: require("native-base/Fonts/Roboto.ttf"),
+      Roboto_medium: require("native-base/Fonts/Roboto_medium.ttf"),
+      Ionicons: require("@expo/vector-icons/fonts/Ionicons.ttf"),
+      Questrial: require("@assets/fonts/Questrial-Regular.ttf")
     });
 
-    this.setState({ fontLoaded: true });
+    this.setState({ isReady: true });
   }
 
   render() {
-    if (!this.state.isLoadingComplete) {
-      return (
-        <AppLoading
-          startAsync={this._loadResourcesAsync}
-          onError={this._handleLoadingError}
-          onFinish={this._handleFinishLoading}
-        />
-      );
-    } else {
-      return (
-        <NavigationContainer>
-          <GalioProvider theme={nowTheme}>
-            <Block flex>
-              <Screens />
-            </Block>
-          </GalioProvider>
-        </NavigationContainer>
-      );
+    const { isReady } = this.state;
+    if (!isReady) {
+      return <Expo.AppLoading />;
     }
+
+    return (
+      <Provider store={store}>
+        <PersistGate loading={<Loading />} persistor={persistor}>
+          <StyleProvider style={getTheme(theme)}>
+            <Dashboard />
+          </StyleProvider>
+        </PersistGate>
+      </Provider>
+    );
   }
-
-  _loadResourcesAsync = async () => {
-    return Promise.all([...cacheImages(assetImages)]);
-  };
-
-  _handleLoadingError = error => {
-    // In this case, you might want to report the error to your error
-    // reporting service, for example Sentry
-    console.warn(error);
-  };
-
-  _handleFinishLoading = () => {
-    if (this.state.fontLoaded) {
-      this.setState({ isLoadingComplete: true });
-    }
-  };
 }
